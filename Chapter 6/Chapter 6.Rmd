@@ -1,0 +1,560 @@
+---
+title: "Chapter 6: Sampling Distributions"
+author: "Nathan Lutz"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+library(tidyverse)
+library(jtools)
+library(ggpubr)
+library(knitr)
+set.seed(922)
+```
+
+# Guiding Scenario
+
+As part of your internship at the county jail, you have conducted observations and recorded the amount of time detainees spend in various parts of the facility, including the fitness center, the library, and the yard. The superintendent, who has now come to rely on your statistical knowledge and analytical savvy, wants to know how each of these areas are being utilized and how much time inmates tend to spend at each. You observe and record the duration in minutes of 200 different inmates’ visits to the three locations, and your results are shown in <b> Table 6.1 </b>
+
+<b> Table 6.1 </b>
+
+<i> Observations of time spent in jail facilities </i>
+
+```{r}
+kable(
+  rbind(
+cbind("Location", "N", "Mean (minutes)", "Standard Deviation"),
+cbind("Fitness Center", 90, 23.6, 4.3),
+cbind("Library", 40, 41.8, 9.7),
+cbind("Yard", 70, 20.7, 1.2)
+),
+align = c('l', 'c', 'c', 'c'))
+```
+
+Additionally, you create histograms of your observations in each of the three locations to show the shape of the distributions of time spent in each facility. You are pleased to see that these observations follow a roughly normal distribution, and there don’t seem to be any major outliers in your data. These histograms are shown in <b> Figure 6.1 </b>.
+
+<b> Figure 6.1 </b>
+
+<i> Sample distributions of time spent in jail facilities </i> 
+ 
+```{r}
+fitness <- cbind(time = rnorm(90, 23.6, 4.3), area = "fitness")
+library <- cbind(time = rnorm(40, 41.8, 9.7), area = "library")
+yard <- cbind(time = rnorm(70, 20.7, 1.2), area = "yard")
+
+df.scen <- data.frame(rbind(fitness, library, yard))
+
+df.scen <- mutate(df.scen,
+                  time = as.numeric(time))
+
+fit.hist <-
+df.scen%>%
+  filter(area == "fitness")%>%
+  ggplot(aes(x = time))+
+  geom_histogram(binwidth = 1.25)+
+  theme_apa()+
+  labs(x = "Time spent (in minutes)")+
+  ggtitle("Fitness Center")
+
+lib.hist <-
+  df.scen%>%
+  filter(area == "library")%>%
+  ggplot(aes(x = time))+
+  geom_histogram(binwidth = 4)+
+  theme_apa()+
+  labs(x = "Time spent (in minutes)",
+       y = "")+
+  ggtitle("Library")
+
+yard.hist <-
+  df.scen%>%
+  filter(area == "yard")%>%
+  ggplot(aes(x = time))+
+  geom_histogram(binwidth = 0.33)+
+  theme_apa()+
+  labs(x = "Time spent (in minutes)",
+       y = "")+
+  ggtitle("Yard")
+
+ggarrange(fit.hist, lib.hist, yard.hist,
+          ncol = 3)
+
+ggsave("/Users/lutznm/Desktop/Lurigio Book/LPL.Textbook/Chapter 6/Tables and Figures/Figure6.1.png")
+```
+ 
+The superintendent is impressed by your work, but she is unsure about how much she can trust the values you have provided. She asks you whether the mean values you recorded are a good representation of how much time all detainees spend in these areas on average, not just the 200 you happened to observe when you were there. You are stumped at first, but then you remember this exact topic was covered in your favorite undergraduate textbook. You enthusiastically open the book and turn to the chapter on sampling distributions.
+
+# Linking to Previous Chapter
+
+The previous chapter discussed various distributions that data tend to follow. It ended by claiming the normal distribution is arguably one of the most important distributions in statistics. This chapter will introduce you to the ways we can use what we know about the properties of the normal distribution (outlined on page __) to draw robust and powerful inferences about our data. We have already seen how the normal curve can be used to draw inferences about single values using the mean and standard deviation of the population and how we can estimate where that value would fall in the distribution of all values in the population. However, the normal curve’s value goes far beyond $z$ scores. By the end of this chapter, you will see why this bell-shaped curve seems to be everywhere you look in statistics.
+
+# Sampling Distributions
+
+You are already familiar with the concept of a statistic drawn from a single sample and how it differs from a parameter drawn from the population. In in the example in the introduction to this chapter, you were interested in how much time people spent in the fitness center, library, and yard, but you only knew the mean amount of time spent in each of the areas by the people you observed. While this provides a good estimate of the mean amount of time spent by the entire population of detainees at the jail, you don’t actually know what the true population value is. In fact, the likelihood that the mean of your sample is the exact same as the population mean is extremely small when measuring on a continuous scale. This is illustrated in the following dice rolling example.
+
+## Imprecision of Samples
+
+[INSERT STOCK IMAGE OF TWO DICE?]
+
+Imagine you have two six-sided dice. You know that the probability of each number, one through six, is $\frac{1}{6}$ or $0.167$ for each of the die. When you roll both dice, the values can range from 2 (i.e., two ones) to 12 (i.e., two sixes). The possible sums of your dice rolls have probabilities displayed in <b> Figure 6.2 </b> below.
+
+<b> Figure 6.2 </b>
+
+<i> Probabilities of values observed when rolling two dice </i>
+ 
+```{r}
+d1 <- seq(1, 6, 1)
+d2 <- seq(1, 6, 1)
+
+d1s <- rep(d1, times = length(d2))
+d2s <- rep(d2, each = length(d1))
+sums <- d1s + d2s
+
+df.dice <- data.frame(d1s, d2s, sums)
+
+df.dice$dev = df.dice$sums - mean(df.dice$sums)
+df.dice$dev2 = df.dice$dev^2
+
+dice.sd.pop <-sqrt(sum(df.dice$dev2)/nrow(df.dice))
+
+dice.probs <-
+df.dice%>%
+  group_by(sums)%>%
+  summarize(prob = n()/length(df.dice)/12)
+
+dice.probs%>%
+  ggplot(aes(x = factor(sums), y = prob))+
+  geom_bar(stat = "identity")+
+  theme_apa()+
+  labs(x = "Observed Dice Roll Total",
+       y = "Probability")
+
+ggsave("/Users/lutznm/Desktop/Lurigio Book/LPL.Textbook/Chapter 6/Tables and Figures/Figure6.2.png")
+```
+ 
+```{r}
+nrolls <- 500
+```
+ 
+The number seven, which can be observed with six different combinations of the two dice (i.e., one and six, two and five, three and four, and the same three combinations on opposite dice), is the most likely value. Since the distribution is perfectly symmetric around seven, it also represents the “expected value” or the average if we were to roll the two dice an infinite number of times. To save the time and energy it would take to roll two dice over and over again, we can use a computer simulation to show what might happen if we rolled these dice a large number of times. <b> Figure 6.3 </b> shows the results of six different “trials” of `r nrolls` dice rolls (about 4 hours of dice rolling done by a computer in a matter of seconds!).
+
+<b> Figure 6.3 </b>
+
+<i> Sample distributions of six trials of `r nrolls` dice rolls </i>
+
+```{r}
+trial.1 <- cbind(value1 = sample(x = seq(1, 6, 1), size = nrolls, replace = TRUE),
+                 value2 = sample(x = seq(1, 6, 1), size = nrolls, replace = TRUE),
+                 trial = "Trial One")
+trial.2 <- cbind(value1 = sample(x = seq(1, 6, 1), size = nrolls, replace = TRUE),
+                 value2 = sample(x = seq(1, 6, 1), size = nrolls, replace = TRUE),
+                 trial = "Trial Two")
+trial.3 <- cbind(value1 = sample(x = seq(1, 6, 1), size = nrolls, replace = TRUE),
+                 value2 = sample(x = seq(1, 6, 1), size = nrolls, replace = TRUE),
+                 trial = "Trial Three")
+trial.4 <- cbind(value1 = sample(x = seq(1, 6, 1), size = nrolls, replace = TRUE),
+                 value2 = sample(x = seq(1, 6, 1), size = nrolls, replace = TRUE),
+                 trial = "Trial Four")
+trial.5 <- cbind(value = sample(x = seq(1, 6, 1), size = nrolls, replace = TRUE),
+                 value2 = sample(x = seq(1, 6, 1), size = nrolls, replace = TRUE),
+                 trial = "Trial Five")
+trial.6 <- cbind(value1 = sample(x = seq(1, 6, 1), size = nrolls, replace = TRUE),
+                 value2 = sample(x = seq(1, 6, 1), size = nrolls, replace = TRUE),
+                 trial = "Trial Six")
+
+df.rolls <-
+  data.frame(
+    rbind(trial.1, trial.2, trial.3,
+          trial.4, trial.5, trial.6))%>%
+  mutate(value1 = as.numeric(value1),
+         value2 = as.numeric(value2),
+         sum = value1 + value2,
+         trial = factor(trial, levels = c("Trial One", "Trial Two", "Trial Three", 
+         "Trial Four", "Trial Five", "Trial Six")))
+
+df.rolls%>%
+  ggplot(aes(x = factor(sum)))+
+  geom_bar(width = .5)+
+  facet_wrap(.~trial)+
+  theme_apa()+
+  labs(x = "Observed Dice Roll Total")
+
+ggsave("/Users/lutznm/Desktop/Lurigio Book/LPL.Textbook/Chapter 6/Tables and Figures/Figure6.3.png")
+
+fig3.trial.means <-
+df.rolls%>%
+  group_by(trial)%>%
+  summarize(mean = mean(sum))
+```
+
+```{r}
+ntrials <- 500
+```
+
+At first glance, these trials all seem to have distributions similar to what we would expect with an infinite number of dice rolls, but none of them are a perfect match with <b> Figure 6.2. </b> The means of these dice rolls are `r round(as.numeric(fig3.trial.means[1, 2]), 2)`, `r round(as.numeric(fig3.trial.means[2, 2]), 2)`, `r round(as.numeric(fig3.trial.means[3, 2]), 2)`, `r round(as.numeric(fig3.trial.means[4, 2]), 2)`, `r round(as.numeric(fig3.trial.means[5, 2]), 2)`, and `r round(as.numeric(fig3.trial.means[6, 2]), 2)`. While they are all close to our known population mean of $7.00$, none of them are exactly equal to the mean. If we were to repeat this with `r ntrials` trials instead of six (about 14 straight days of dice rolling), compute the mean from each trial, and plot those means, we might get a distribution like the one in <b> Figure 6.4. </b>
+
+<b> Figure 6.4 </b>
+
+<i> Sampling distribution of the means of `r ntrials` trials of `r nrolls` dice rolls </i>
+
+```{r}
+dice.means <- rep(NA, ntrials)
+
+for(i in 1:ntrials){
+  roll1 <- sample(x = seq(1, 6, 1), size = nrolls, replace = TRUE)
+  roll2 <- sample(x = seq(1, 6, 1), size = nrolls, replace = TRUE)
+  sum <- roll1 + roll2
+  dice.means[i] <- mean(sum)
+}
+
+df.500.500.rolls <- data.frame(dice.means)
+
+ggplot()+
+  geom_histogram(aes(x = dice.means), data = df.500.500.rolls, binwidth = .05)+
+  theme_apa()+
+  labs(x = "Mean of Dice Rolls",
+       y = "Count")+
+  xlim(c(6.5, 7.5))
+
+ggsave("/Users/lutznm/Desktop/Lurigio Book/LPL.Textbook/Chapter 6/Tables and Figures/Figure6.4.png")
+```
+ 
+Across `r ntrials` trials, each with quite large sample sizes also equal to `r nrolls`, we are seeing some variability in the mean. In this simulation, the mean ranges from `r round(min(dice.means), 2)` to `r round(max(dice.means), 2)`, with most of the values close to the true population mean of $7.00$. The mean of the means of the `r ntrials` trials is `r round(mean(dice.means), 3)`, and the median is `r round(median(dice.means), 3)`. What may be surprising to hear is that only `r sum(dice.means == 7)` of the `r ntrials`, i.e., `r round(sum(dice.means == 7)/ntrials, 4)*100`%, of the trials produced a mean exactly equal to our known population mean. It is actually more likely to be wrong about the mean than it is to be exactly right! This distribution of means is known as a sampling distribution.
+
+## Distinguishing Sample Distributions and Sampling Distributions
+One essential distinction in this chapter is the difference between sample distributions and sampling distributions. A sample distribution is simply the shape of some set of data that you have collected. Sample distributions are shown in <b> Figures 6.1, 6.2, and 6.3. </b> They represent actual observed data, and they are commonly reported in research manuscripts. Various sample distributions and their potential shapes were discussed in Chapter 5.
+
+Sampling distributions, however, are a bit less common in practice and are typically more of a hypothetical construct. Rarely in a basic statistics course do we repeat the procedures represented by <b> Figure 6.4. </b> We instead use an important statistical theorem (more on that later) to create a hypothetical sampling distribution from what we observed in our single sample. A sampling distribution represents the amount we would expect our estimate of a population parameter (i.e., a statistic) to differ if we were continue to draw samples over and over again. It is important to know that we do not usually perform this re-sampling when using basic statistical methods, and we often work with single samples.
+
+## Note about Imprecision
+
+An important note about sampling distributions is that the sampling variability we observe above does not come from mistakes made in measurement, bias, or someone trying to avoid rolling 7’s (as one might on casino night). The dice rolling trials were completely random with fixed equal probabilities for each number on each die, yet we still failed to achieve the exact population mean in `r (1-round(sum(dice.means == 7)/ntrials, 4))*100`% of the trials. The variability we observe comes from the fact that we are only drawing a single sample from the population, and that sample may randomly deviate from the mean. These deviations are shown in sampling distributions like the one in <b> Figure 6.4. </b> This is important to keep in mind when reading the upcoming section on standard error, which uses the somewhat misleading term “error.” This term does not imply that the person collecting the data made a mistake or that there is something wrong with the data themselves. Instead, this is an “error” that is inherent in drawing samples from a population.
+
+# The Central Limit Theorem
+
+If you were paying close attention, you may have noticed that the sampling distribution in <b> Figure 6.4 </b> has a quite recognizable shape. Having diligently paid attention to the previous chapter, your professor’s lecture, and this chapter so far, you may in fact have immediately recognized the approximately normal curve that the means drawn from the `r ntrials` trials formed. This is no coincidence, and it is at the heart of virtually all statistical methods that fall into the category of “frequentist” statistics. These methods get their name from the idea that we can make estimations about the population by imagining what would happen if we drew an infinite number of samples and observed the “frequency” of the statistics we draw from each sample. These frequencies are represented by sampling distributions. In our dice example, we were able to simulate `r ntrials` trials relatively quickly and efficiently, but it would certainly be less quick and efficient to repeat most scientific studies `r ntrials` times to approximate the population distribution. For example, repeating your observations of the common spaces at the jail `r ntrials` times would take years, if not multiple lifetimes.
+
+This is where the Central Limit Theorem saves the day. In… [CITE SOMETHING?]. We see in <b> Figure 6.5 </b> that a normal curve with a mean and standard deviation equal to the mean and standard deviation of the means of all of our dice roll trials fits almost perfectly over our histogram.
+
+<b> Figure 6.5 </b>
+
+<i> The means of `r ntrials` trials of `r nrolls` dice rolls with the normal curve overlaid </i>
+
+```{r}
+x <- seq(6.25, 7.75, .01)
+y <- dnorm(x, mean = mean(dice.means), sd = sd(dice.means))*sqrt(ntrials)
+
+norm <- data.frame(x, y)
+
+ggplot()+
+  geom_histogram(aes(x = dice.means), data = df.500.500.rolls, binwidth = .05, alpha = .5)+
+  geom_line(aes(x = x, y = y), data = norm, lty = "dashed")+
+  theme_apa()+
+  labs(x = "Mean of Dice Rolls",
+       y = "Count")+
+  xlim(c(6.5, 7.5))
+
+ggsave("/Users/lutznm/Desktop/Lurigio Book/LPL.Textbook/Chapter 6/Tables and Figures/Figure6.5.png")
+```
+ 
+It should be noted that the normal curve above is not the standard normal curve that we discussed in the previous chapter but is instead just a normal curve. If we were to standardize the means from our dice roll trials, i.e., subtract the mean from each value and divide by the standard deviation, the standard normal curve could be overlaid in the same way.
+
+As you learned in Chapter 5, there are many advantages to knowing that something is normally distributed. In our dice roll example, we can use our mean of `r round(mean(dice.means), 3)` and our standard deviation of `r round(sd(dice.means), 3)` from our sampling distribution to estimate the probability of observing various means when drawing similar `r nrolls`-roll samples. For example, we would expect that about 68.3% of the means would fall between `r round(mean(dice.means)-sd(dice.means), 2)` and `r round(mean(dice.means)+sd(dice.means), 2)`, or within one standard deviation of the mean. We would also expect that about 99.7% of the means would fall between `r round(mean(dice.means)-3*sd(dice.means), 2)` and `r round(mean(dice.means)+3*sd(dice.means), 2)`, or within three standard deviations of the mean. Based on just two values, the mean and standard deviation, we can make statements about how likely any number of values for the true mean are.
+
+For our dice rolling example, we did not actually need to create our own sampling distribution, because we know the mean and standard deviation of the population of dice rolls. In cases when the mean and standard deviation are unknown, knowing about how the mean might be distributed is extremely helpful, and the beauty of the Central Limit Theorem is that we only need a single sample to make guesses about this distribution (more on that later).
+
+One of the most important properties of the Central Limit Theorem is that it holds true no matter what the shape of the drawn sample is. This means you do not need to have normally distributed sample data for the Central Limit Theorem to apply. Further, with a large enough sample, even the underlying population distribution can be non-normal. If you are having a hard time believing this, the applet at [this website](https://onlinestatbook.com/stat_sim/sampling_dist/index.html) may help convince you. This interactive applet allows you to draw from various parent population distributions then draw means from those samples one at a time, five at a time, or even 100,000 at a time. <b> Figure 6.6 </b> shows an example of a positively skewed parent population, a sample draw of ten values from that population, and a distribution of 100,001 means from similarly drawn samples. You can see that, although the single sample with N = 10 does not appear to be normally distributed, the sampling distribution (or Distribution of Means) is much closer to a normal distribution. This applet allows you to simulate in the same style as our dice roll example on other distributions and see the power of the Central Limit Theorem.
+
+<b> Figure 6.6 </b>
+
+<i> Screenshot from onlinestatbook sampling distribution applet </i>
+
+![](/Users/lutznm/Desktop/Lurigio Book/LPL.Textbook/Chapter 6/onlinestatbook.png)
+
+If you are starting to become concerned about the rigorous process of developing sampling distributions by re-sampling and re-calculating statistics over and over again, you should know these processes are only being done as an example. This concept, while complex conceptually, is actually quite simple to apply in practice. The next section will provide you with the final piece of the puzzle that will allow you to create sampling distributions using just a single sample.
+
+# Standard Error
+
+In the previous chapter, we learned that any normal distribution can be characterized by just two values, the mean and the standard deviation. If you know these two values, you can approximate the shape of the distribution using the normal curve. The mean represents the central point of the normal distribution. In our dice rolling example, we saw that the mean of our distribution of means (`r round(mean(dice.means), 3)`) was almost identical to the true population mean of 7.00. When something is perfectly normally distributed, the mean, median, and mode are all equal. We also saw this in our example, as the median observed value was `r round(median(dice.means), 3)`. Calculating our best estimate of the population mean based on the sample is easy; we simply use the sample mean to approximate the mean in the population. If we did not know that our population mean was 7.00, any of the sample means, which ranged from `r round(min(dice.means), 2)` to `r round(max(dice.means), 2)`, would have been reasonable estimates of the true population mean. In most real-world applications, the population mean will be unknown, and you will use the sample mean to estimate this value. Similarly, you will not know how far your sample estimate is from the true population mean. What we have not yet covered is how to estimate the standard deviation of the normal curve characterized by the Central Limit Theorem (i.e., the sampling distribution).
+
+The standard deviation represents the “spread” of the values and how much they tend to differ from the mean on average. We know that the population standard deviation for all dice rolls is 2.42, but our sampling distribution had a standard deviation of `r round(sd(dice.means), 3)`. Is this a flaw in the way we sampled? This sampling standard deviation is clearly not a good estimate of the population standard deviation, but should it be?
+
+Unfortunately, the standard deviation of the sampling distribution cannot simply be estimated using the standard deviation of a single sample, but it actually would not make much sense for these values to be the same. The population standard deviation tells us how much all values in a population deviate from the population mean, but we are interested in how much the sample means differ from the true population mean. Only in cases in which we draw samples with N = 1 would we expect the standard deviation from the population and the standard error to be the same. When we draw a mean from a sample with any other size, however, we are reducing the information from all the values in the sample into a single value, which is one advantage of calculating the mean in the first place. This single value estimation makes it less likely that we will see values in the tails of the population distribution as our sample size increases. In the dice rolling example, getting a mean of 2.0 with a sample size of even something as low as N = 5 would require rolling two “ones” five times in a row, an extremely rare outcome with a probability of .000000016. We need to alter the standard deviation to achieve an estimate of the standard error.
+
+We can manipulate the population standard deviation or even the standard deviation we draw from a single sample to formulate an estimate of this value at the “sampling” level. Before we can discuss how to calculate this value, we need to cover a bit of statistics history and talk about a county fair, a weight-guessing contest, and the importance of large samples.
+
+## The Law of Large Numbers
+
+[STOCK IMAGE OF A BULL?]
+
+In 1907, Francis Galton wrote a one-page summary of a study titled Vox Populi, Latin for “the voice of the people,” that was published in Nature (Galton, 1907). He had been given 787 tickets entered by farmers, butchers, and non-experts that included the guess of the weight of a bull at a county fair. The entrants paid a sixpenny fee and were promised a prize if they guessed correctly. While the guesses ranged in their accuracy, and some were quite far from the true weight of 1198 pounds, the “middle-most estimate” was 1207 pounds, only off by 9 pounds, or less than 1% of the weight of the bull. Galton observed that the estimates were nearly normally distributed around the true weight of the bull, i.e., the “population” mean, and that most of the guesses were quite close to the true weight of the bull. Galton’s “future directions” section simply called for better record-keeping at cattle shows, but the actual implications of his findings transcend county fair policies and represent an important principle in statistics.
+
+While Galton’s bull-weighing anecdote is entertaining, it was not the first time someone realized that the “voice of the people” may be stronger than the “voice of a person.” In a somewhat less entertaining, equation-filled proof, Jacob Bernoulli (1713) showed how an experiment’s accuracy improves as the number of trials increases. This somewhat intuitive concept, titled “Bernoulli’s theorem,” was expanded upon by the French mathematician, S. D. Poisson (1837), whose “la loi des grands nombres” or “law of large numbers” continues to be cited today. The mathematics behind these theorems are beyond the scope of this textbook, but their conclusions are relatively easy to understand.
+
+The law of large numbers states that the statistics drawn from a sample approach the true population parameters as the sample size approaches infinity. You probably entered this course with the understanding that a scientific experiment with 500 participants gives us more useful information than an experiment with 5 participants, and this law formalizes that intuition. If we return to our example of dice rolling, we can see how larger sample sizes lead to estimates that better represent the population. <b> Figure 6.7 </b> shows an example of six different simulated trials of dice rolls with various sample sizes. As we increase our sample size to $10,000$, we have a distribution that almost perfectly replicates what we would expect the population to look like.
+
+<b> Figure 6.7 </b>
+
+<i> Sample distributions of dice rolls with various sample sizes </i>
+ 
+```{r}
+trial.10 <- cbind(value1 = sample(x = seq(1, 6, 1), size = 10, replace = TRUE),
+                  value2 = sample(x = seq(1, 6, 1), size = 10, replace = TRUE),
+                   trial = "N = 10")
+
+trial.50 <- cbind(value1 = sample(x = seq(1, 6, 1), size = 50, replace = TRUE),
+                  value2 = sample(x = seq(1, 6, 1), size = 50, replace = TRUE),
+                  trial = "N = 50")
+
+trial.100 <- cbind(value1 = sample(x = seq(1, 6, 1), size = 100, replace = TRUE),
+                  value2 = sample(x = seq(1, 6, 1), size = 100, replace = TRUE),
+                  trial = "N = 100")
+
+trial.500 <- cbind(value1 = sample(x = seq(1, 6, 1), size = 500, replace = TRUE),
+                  value2 = sample(x = seq(1, 6, 1), size = 500, replace = TRUE),
+                  trial = "N = 500")
+
+trial.1000 <- cbind(value1 = sample(x = seq(1, 6, 1), size = 1000, replace = TRUE),
+                  value2 = sample(x = seq(1, 6, 1), size = 1000, replace = TRUE),
+                  trial = "N = 1000")
+
+trial.10000 <- cbind(value1 = sample(x = seq(1, 6, 1), size = 10000, replace = TRUE),
+                    value2 = sample(x = seq(1, 6, 1), size = 10000, replace = TRUE),
+                    trial = "N = 10000")
+
+
+df.rolls <-
+  data.frame(
+    rbind(trial.10, trial.50, trial.100,
+          trial.500, trial.1000, trial.10000))%>%
+  mutate(value1 = as.numeric(value1),
+         value2 = as.numeric(value2),
+         sum = value1 + value2,
+         trial = factor(trial,
+                        levels = c("N = 10", "N = 50", "N = 100", 
+                                   "N = 500", "N = 1000", "N = 10000")
+                        ))
+
+df.rolls%>%
+  ggplot(aes(x = factor(sum)))+
+  geom_bar(width = .5)+
+  facet_wrap(.~trial, scales = "free_y")+
+  theme_apa()+
+  labs(x = "Observed Dice Roll Total")
+
+fig7.trial.means <-
+df.rolls%>%
+  group_by(trial)%>%
+  summarize(mean = mean(sum))
+
+nsim <- 10000
+
+options(scipen=999)
+
+ggsave("/Users/lutznm/Desktop/Lurigio Book/LPL.Textbook/Chapter 6/Tables and Figures/Figure6.7.png")
+```
+ 
+It follows that the statistics drawn from these samples also improve in their accuracy as we increase the sample size, which is supported by the law of large numbers. In the samples shown in <b> Figure 6.7 </b>, the computed means are `r round(as.numeric(fig7.trial.means[1, 2]), 2)`, `r round(as.numeric(fig7.trial.means[2, 2]), 2)`, `r round(as.numeric(fig7.trial.means[3, 2]), 2)`, `r round(as.numeric(fig7.trial.means[4, 2]), 2)`, `r round(as.numeric(fig7.trial.means[5, 2]), 2)`, and `r round(as.numeric(fig7.trial.means[6, 2]), 2)` respectively. As sample size increases, we approach the true expected mean of 7.00. We can see this concept in <b> Figure 6.8 </b>, which draws random samples of dice rolls of increasing size and displays the average. This average converges to the true population average of 7.00 as the sample size increases. The plot on the left shows all `r nsim` simulations with N ranging from $1$ to `r nsim`, while the plot on the right shows the first $500$ simulations.
+
+<b> Figure 6.8 </b>
+
+<i> Sample means converge to population mean with increasing sample size </i>
+
+```{r}
+samp.means <- rep(NA, nsim)
+
+for(i in 1:nsim){
+  value1 = sample(x = seq(1, 6, 1), size = i, replace = TRUE)
+  value2 = sample(x = seq(1, 6, 1), size = i, replace = TRUE)
+  sums <- value1 + value2
+  samp.means[i] <- mean(sums)
+}
+
+n <- seq(1, nsim, 1)
+
+df.lln.sims <- data.frame(cbind(n, samp.means))
+
+plot.10000 <-
+df.lln.sims%>%
+  ggplot(aes(x = n, y = samp.means))+
+  geom_line(alpha = .5)+
+  geom_hline(yintercept = 7, lty = "dashed", color = "red")+
+  ylim(c(5, 9))+
+  theme_apa()+
+  labs(y = "Sample Mean",
+       x = "N")+
+  ggtitle("All 10,000 simulations")
+
+plot.500 <- 
+df.lln.sims%>%
+  filter(n < 500)%>%
+  ggplot(aes(x = n, y = samp.means))+
+  geom_line(alpha = .5)+
+  geom_hline(yintercept = 7, lty = "dashed", color = "red")+
+  ylim(c(5, 9))+
+  theme_apa()+
+  labs(y = "Sample Mean",
+       x = "N")+
+  ggtitle("First 500 simulations")
+
+ggarrange(plot.10000, plot.500)
+
+ggsave("/Users/lutznm/Desktop/Lurigio Book/LPL.Textbook/Chapter 6/Tables and Figures/Figure6.8.png")
+```
+ 
+Although the shapes of these distributions may not perfectly replicate the population distribution, you can see we do not need an extremely large sample to get a good estimate of the true population mean. In this example, we are close to a mean of 7.00 even with samples as small as 100. After a certain point, the accuracy of our estimates appear to improve only at a marginal rate, but they are indeed improving. We will use the understanding that sample size affects the accuracy of our estimates of sample means in the calculation of the standard error.
+
+## Calculating the Standard Error
+
+We can use the dice rolling example, a case in which the population mean and standard deviation are known, to illustrate the sampling distribution that has the most straightforward calculation. Across the population of all possible dice rolls, we know the mean is $7.00$ and the standard deviation is $2.42$. As stated before, if our sample size was $N = 1$, these numbers would also characterize the sampling distribution’s mean and standard deviation, i.e., the standard error of the mean. Larger samples will require additional information. To calculate the standard error for a sample with $N > 1$, we will need to use our understanding of how the sample size affects the standard deviation.
+
+```{r}
+nsim <- 100
+ntrials <- 500
+```
+
+
+In <b> Figure 6.8 </b>, we were able to show that increasing sample sizes lead to better overall estimates of the mean. <b> Figure 6.9 </b> confirms that the same pattern does not hold for the standard deviation. With increasing sample size, we observe a quick drop-off in the variability of the means computed in `r ntrials` trials of varying sample sizes.
+
+<b> Figure 6.9 </b>
+
+<i> Sampling standard deviations do not converge to population standard deviation with increasing sample size </i>
+
+```{r}
+samp.sds <- rep(NA, nsim)
+samp.means <- rep(NA, ntrials)
+
+for(i in 1:nsim){
+  for(j in 1:ntrials){
+  value1 = sample(x = seq(1, 6, 1), size = i, replace = TRUE)
+  value2 = sample(x = seq(1, 6, 1), size = i, replace = TRUE)
+  sums <- value1 + value2
+  samp.means[j] <- mean(sums)
+  }
+  samp.sds[i] <- sd(samp.means)
+}
+
+n <- seq(1, nsim, 1)
+
+df.se.sims <- data.frame(cbind(n, samp.sds))
+
+plot.100 <-
+  df.se.sims%>%
+  ggplot(aes(x = n, y = samp.sds))+
+  geom_point(alpha = .5)+
+  geom_hline(yintercept = 2.42, lty = "dashed", color = "red")+
+  ylim(c(0, 2.5))+
+  theme_apa()+
+  labs(y = "Sampling SD",
+       x = "N")
+
+plot.100
+
+ggsave("/Users/lutznm/Desktop/Lurigio Book/LPL.Textbook/Chapter 6/Tables and Figures/Figure6.9.png")
+```
+
+The decrease in the variability of these estimates is directly related to sample size, and it can be calculated simply by dividing the population standard deviation by the square root of the sample size. Equivalently, you can take the square root of the population variance divided by the sample size. This creates an estimate such that the variability in the estimates of various statistics approaches zero as N approaches infinity, or the estimates of these statistics will exactly equal their related population parameter as the sample size approaches the size of the entire population.
+
+[MATHEMATICAL PROOF HERE?]
+
+Sure enough, when we use the equation above to compute the standard error of our sample of `r nrolls` dice rolls by dividing the population standard deviation $2.42$ by the square root of `r nrolls`, we get $0.108$, which is close to our simulated standard error of `r round(sd(dice.means), 3)`. We can apply this understanding to <b> Figure 6.10 </b> and see that the curve created by computing expected standard errors almost perfectly fits the curve of our simulated standard errors.
+
+<b> Figure 6.10 </b>
+
+<i> Sampling standard deviations with calculated standard errors overlaid </i>
+
+```{r}
+Ns <- seq(1, 100, 1)
+
+SEs <- dice.sd.pop/sqrt(Ns)
+
+df.pop <- data.frame(Ns, SEs)
+
+ggplot()+
+  geom_point(aes(x = n, y = samp.sds), data = df.se.sims, alpha = .5)+
+  geom_line(aes(x = Ns, y = SEs), data = df.pop, lty = "dashed", color = "red")+
+  ylim(c(0, 2.5))+
+  theme_apa()+
+  labs(y = "Sampling SD",
+       x = "N")
+
+ggsave("/Users/lutznm/Desktop/Lurigio Book/LPL.Textbook/Chapter 6/Tables and Figures/Figure6.10.png")
+```
+ 
+The understanding that this computation results in almost identical estimates to what you would get if you simulated samples over and over again shows why these computed estimates are preferred to gathering information from the entire population or to drawing repeated samples. A single sample can give us a reasonable estimate of what would happen if we repeated our sampling methods an infinite number of times.
+
+When we do not know the population values and are working with unknown population parameters, we need to take a slightly different approach. This approach will be covered in detail in Chapter 7. Instead of $z$ distributions, we need to use the slightly modified $t$ distribution when population parameters are unknown.
+
+# Confidence Intervals
+
+As mentioned previously, we can leverage the power of sampling distributions to make statements about how we would expect the mean to deviate upon infinite re-sampling. One common way this is done in practice is to compute “confidence” intervals that tell us the lower and upper bounds that would create a distribution that captures a given proportion of means from the sampling distribution. In our dice rolling example with a sample size of `r nrolls`, we can use our mean of $7.00$, our standard error of $0.108$, and our knowledge of the normal curve to determine an example of what these bounds may be. Like we did in Chapter 5, we can multiply $0.108$ by $\pm 1.96$, the values at the $2.5^{th}$ and $97.5^{th}$ percentiles of the normal curve, to get our 95% confidence interval. We add these values to $7.00$ to get our confidence interval bounds of $6.79$ and $7.21$. These bounds are shown along with the sampling distribution for `r nrolls` dice rolls in <b> Figure 6.11 </b>.
+
+<b> Figure 6.11 </b>
+
+<i> 95% confidence interval for the means of `r nrolls` dice rolls </i>
+ 
+```{r}
+se.500 <- dice.sd.pop/sqrt(500)
+
+ci.l <- qnorm(.025, 7, se.500)
+ci.u <- qnorm(.975, 7, se.500)
+
+x <- seq(6.5, 7.5, .01)
+y <- dnorm(x, 7, se.500)
+
+df <- data.frame(x, y)
+
+df%>%
+  ggplot()+
+  geom_line(aes(x = x, y = y))+
+  geom_segment(x = ci.l, xend = ci.l, y = 0, yend = y, lty = "dashed", color = "red")+
+  geom_segment(x = ci.u, xend = ci.u, y = 0, yend = y, lty = "dashed", color = "red")+
+  theme_apa()+
+  labs(x = "Sampling Means",
+       y = "")+
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank())
+
+ggsave("/Users/lutznm/Desktop/Lurigio Book/LPL.Textbook/Chapter 6/Tables and Figures/Figure6.11.png")
+```
+ 
+Computing a “confidence” interval in this scenario is only here as an example. Obviously, this interval is not useful to us in this case, since our “100% confidence interval” when the mean is known is $[7.00, 7.00]$ with a given population mean of $7.00$. There is a slight difference in the way confidence intervals are interpreted when the population mean and standard deviation are unknown, but the computation is similar. This distinction will be discussed in depth in Chapter 7.
+
+# Revisiting the Opening Example
+
+Equipped with the information from above, you are now prepared to answer the superintendent’s question. We will get into the exact calculations of these values in the next chapter, but the interpretations of the standard errors and confidence intervals remain the same. These values have been added to <b> Table 6.1 </b> and are shown in <b> Table 6.2. </b>
+
+<b> Table 6.2 </b>
+
+<i> Observations of time spent in jail facilities (with standard error) </i>
+
+```{r}
+kable(
+  rbind(
+cbind("Location", "N", "Mean (minutes)", "Standard Deviation","Standard Error of the Mean", "95% CI of the Mean"),
+cbind("Fitness Center", 90, 23.6, 4.3, 0.46, "[22.71, 24.49]"),
+cbind("Library", 40, 41.8, 9.7, 1.55, "[38.76, 44.84]"),
+cbind("Yard", 70, 20.7, 1.2, 0.14, "[20.42,  20.98]")
+),
+align = c('l', 'c', 'c', 'c', 'c', 'c'))
+```
+
+You explain to the superintendent that the mean amount of time spent in each area is about $24$, $42$, and $21$ minutes, but that if we were to repeat these observations over and over, those means would range from $22.7$ to $24.5$, $38.8$ to $44.8$, and $20.4$ to $21.0$ in the vast majority of the repetitions.
+
+# Summary
+
+[ADDED WHEN CONTENT IS FINALIZED]
+
+--- 
+
+\newpage
+
+<b> References </b>
+
+Bernoulli, Jakob (1713). Ars conjectandi: Usum & applicationem praecedentis doctrinae in civilibus, moralibus & oeconomicis (in Latin). Translated by Sheynin, Oscar.
+
+Galton, F. (1907), Vox populi, Nature, 75, 450-451. doi: 10.1038/075450a0
+
+Poisson, S. D. (1837). Probabilité des jugements en matière criminelle et en matière civile, précédées des règles générales du calcul des probabilitiés (in French). Paris, France: Bachelier, pp. 139–143 and pp. 277

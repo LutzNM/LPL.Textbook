@@ -102,25 +102,25 @@ mean(rolls)
 500*5/60*6/60
 500*5/60*500/60/24
 
-sims <- 500
+ntrials <- 500
 
-trial.1 <- cbind(value1 = sample(x = seq(1, 6, 1), size = sims, replace = TRUE),
-                 value2 = sample(x = seq(1, 6, 1), size = sims, replace = TRUE),
+trial.1 <- cbind(value1 = sample(x = seq(1, 6, 1), size = ntrials, replace = TRUE),
+                 value2 = sample(x = seq(1, 6, 1), size = ntrials, replace = TRUE),
                  trial = "Trial One")
-trial.2 <- cbind(value1 = sample(x = seq(1, 6, 1), size = sims, replace = TRUE),
-                 value2 = sample(x = seq(1, 6, 1), size = sims, replace = TRUE),
+trial.2 <- cbind(value1 = sample(x = seq(1, 6, 1), size = ntrials, replace = TRUE),
+                 value2 = sample(x = seq(1, 6, 1), size = ntrials, replace = TRUE),
                  trial = "Trial Two")
-trial.3 <- cbind(value1 = sample(x = seq(1, 6, 1), size = sims, replace = TRUE),
-                 value2 = sample(x = seq(1, 6, 1), size = sims, replace = TRUE),
+trial.3 <- cbind(value1 = sample(x = seq(1, 6, 1), size = ntrials, replace = TRUE),
+                 value2 = sample(x = seq(1, 6, 1), size = ntrials, replace = TRUE),
                  trial = "Trial Three")
-trial.4 <- cbind(value1 = sample(x = seq(1, 6, 1), size = sims, replace = TRUE),
-                 value2 = sample(x = seq(1, 6, 1), size = sims, replace = TRUE),
+trial.4 <- cbind(value1 = sample(x = seq(1, 6, 1), size = ntrials, replace = TRUE),
+                 value2 = sample(x = seq(1, 6, 1), size = ntrials, replace = TRUE),
                  trial = "Trial Four")
-trial.5 <- cbind(value = sample(x = seq(1, 6, 1), size = sims, replace = TRUE),
-                 value2 = sample(x = seq(1, 6, 1), size = sims, replace = TRUE),
+trial.5 <- cbind(value = sample(x = seq(1, 6, 1), size = ntrials, replace = TRUE),
+                 value2 = sample(x = seq(1, 6, 1), size = ntrials, replace = TRUE),
                  trial = "Trial Five")
-trial.6 <- cbind(value1 = sample(x = seq(1, 6, 1), size = sims, replace = TRUE),
-                 value2 = sample(x = seq(1, 6, 1), size = sims, replace = TRUE),
+trial.6 <- cbind(value1 = sample(x = seq(1, 6, 1), size = ntrials, replace = TRUE),
+                 value2 = sample(x = seq(1, 6, 1), size = ntrials, replace = TRUE),
                  trial = "Trial Six")
 
 df.rolls <-
@@ -142,9 +142,12 @@ df.rolls%>%
   theme_apa()+
   labs(x = "Observed Dice Roll Total")
 
+fig3.trial.means <-
 df.rolls%>%
   group_by(trial)%>%
   summarize(mean = mean(sum))
+
+as.numeric(fig3.trial.means[2, 2])
 
 ggsave("/Users/lutznm/Desktop/Lurigio Book/R Output/Ch.6.Six.Dice.Roll.Trials.png")
 
@@ -404,7 +407,7 @@ ggplot()+
        y = "Count")+
   xlim(c(6.5, 7.5))
 
-se.500 <- dice.sd.pop/sqrt(500)
+se.500 <- sd(dice.means)/sqrt(500)
 
 ci.l <- qnorm(.025, 7, se.500)
 ci.u <- qnorm(.975, 7, se.500)
